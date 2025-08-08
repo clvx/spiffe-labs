@@ -1,0 +1,4 @@
+conf/*
+data/*
+.direnv/*
+tmp/*
