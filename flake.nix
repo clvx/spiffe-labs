@@ -65,6 +65,7 @@
         spire
       ];
 
+
       
       shellHook = ''
         echo "Welcome to the SPIRE dev shell"
@@ -77,9 +78,21 @@
         fi
 
         export PATH=$PWD/bin:$PATH
+        export SPIFFE_ID="spiffe://example.org/lab/service"
         echo "Run server: spire-server run -config conf/server/server.conf"
-        echo "Generate token:  spire-server token generate -spiffeID <spiffeID> --output json | jq -r .value"
-        echo "Run agent : spire-agent run -config conf/agent/agent.conf -joinToken <token>"
+        spire-server run -config conf/server/server.conf &
+        echo "Waiting for server to generate agent token..."
+        for i in $(seq 1 60); do
+          echo "Generate token:  spire-server token generate -spiffeID $SPIFFE_ID --output json | jq -r .value"
+          SERVICE_TOKEN=$(spire-server token generate -spiffeID "$SPIFFE_ID" --output json 2>/dev/null | jq -r .value || true)
+          if [ -n "$SERVICE_TOKEN" ] && [ "$SERVICE_TOKEN" != "null" ]; then
+            break
+          fi
+          sleep 0.5
+        done
+        echo "Run agent: spire-agent run -config conf/agent/agent.conf -joinToken <token>"
+        spire-agent run -config conf/agent/agent.conf -joinToken $SERVICE_TOKEN &
+        trap 'kill $(jobs -p)' EXIT # Ensure background processes are killed on shell exit
       '';
 
     };
